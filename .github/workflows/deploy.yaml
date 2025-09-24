@@ -35,6 +35,7 @@ jobs:
         run: |
           cd ${{ env.DEPLOY_DIR }}
           
+          
           cp docker-compose.yml docker-compose.yml.backup
           
           sed -i "s|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend  |image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend:${{ steps.vars.outputs.tag }}|g" docker-compose.yml
