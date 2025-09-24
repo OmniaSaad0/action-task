@@ -1,0 +1,62 @@
+
+- name: Create security group
+  amazon.aws.ec2_group:
+    name: "{{ security_group_name }}"
+    description: "Security group for FortStack application"
+    region: "{{ aws_region }}"
+    rules:
+      - proto: tcp
+        ports:
+          - 22
+        cidr_ip: "0.0.0.0/0"
+        rule_desc: "SSH"
+      - proto: tcp
+        ports:
+          - 8080
+        cidr_ip: "0.0.0.0/0"
+        rule_desc: "Frontend"
+      - proto: tcp
+        ports:
+          - 8081
+        cidr_ip: "0.0.0.0/0"
+        rule_desc: "Backend"
+    tags: "{{ resource_tags }}"
+  register: security_group
+  tags: [ec2, aws]
+
+- name: Launch EC2 instance
+  amazon.aws.ec2_instance:
+    region: "{{ aws_region }}"
+    key_name: "{{ key_name }}"
+    security_groups: "{{ security_group_name }}"
+    instance_type: "{{ instance_type }}"
+    image_id: "{{ ami_id }}"
+    wait: true
+    wait_timeout: 500
+    tags: "{{ resource_tags }}"
+    user_data: |
+      #!/bin/bash
+      apt-get update
+      apt-get install -y python3 python3-pip
+  register: ec2_instance
+  tags: [ec2, aws]
+
+- name: Wait for SSH to be available
+  wait_for:
+    host: "{{ ec2_instance.instances[0].public_ip_address }}"
+    port: 22
+    delay: 30
+    timeout: 300
+  tags: [ec2, aws]
+
+- name: Add instance to inventory
+  add_host:
+    name: "{{ instance_name }}"
+    groups: "aws_instances"
+    ansible_host: "{{ ec2_instance.instances[0].public_ip_address }}"
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: "~/.ssh/id_rsa"
+    ec2_instance_id: "{{ ec2_instance.instances[0].instance_id }}"
+    ec2_public_ip: "{{ ec2_instance.instances[0].public_ip_address }}"
+    ec2_private_ip: "{{ ec2_instance.instances[0].private_ip_address }}"
+  tags: [ec2, aws]

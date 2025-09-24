@@ -1,0 +1,38 @@
+---
+- name: Create application user
+  user:
+    name: "{{ app_user }}"
+    password: "{{ app_user_password | password_hash('sha512') }}"
+    shell: /bin/bash
+    home: "/home/{{ app_user }}"
+    create_home: true
+    groups: [sudo, docker]
+    state: present
+  tags: [users, app_user]
+
+- name: Create .ssh directory for application user
+  file:
+    path: "/home/{{ app_user }}/.ssh"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0700'
+  tags: [users, ssh, app_user]
+
+- name: Copy public key to application user
+  copy:
+    content: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    dest: "/home/{{ app_user }}/.ssh/authorized_keys"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0600'
+  tags: [users, ssh, app_user]
+
+- name: Set up sudoers for application user
+  lineinfile:
+    path: /etc/sudoers.d/{{ app_user }}
+    line: "{{ app_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: '0440'
+    validate: 'visudo -cf %s'
+  tags: [users, sudo, app_user]

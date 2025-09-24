@@ -1,0 +1,105 @@
+---
+- name: Create application directory
+  file:
+    path: "{{ app_install_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0755'
+  tags: [deploy, directories]
+
+# - name: Clone backend repository
+#   git:
+#     repo: "{{ backend_repo_url }}"
+#     dest: "{{ app_install_dir }}/backend"
+#     version: "{{ backend_repo_branch }}"
+#     force: true
+#   become_user: "{{ app_user }}"
+#   tags: [deploy, git]
+
+# - name: Clone frontend repository
+#   git:
+#     repo: "{{ frontend_repo_url }}"
+#     dest: "{{ app_install_dir }}/frontend"
+#     version: "{{ frontend_repo_branch }}"
+#     force: true
+#   become_user: "{{ app_user }}"
+#   tags: [deploy, git]
+
+- name: Create production docker-compose file
+  copy:
+    content: |
+      version: '3.8'
+      networks:
+        app-network:
+          driver: bridge
+      services:
+        backend:
+          image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend
+          container_name: fortstack-backend
+          ports:
+            - "8081:8080"
+          environment:
+            ALPINE_CORS_ENABLED: "true"
+            ALPINE_CORS_ALLOW_ORIGIN: "*"
+            ALPINE_CORS_ALLOW_METHODS: "GET, POST, PUT, DELETE, OPTIONS"
+            ALPINE_CORS_ALLOW_HEADERS: "Origin, Content-Type, Authorization, X-Requested-With, Content-Length, Accept, Origin, X-Api-Key, X-Total-Count"
+            ALPINE_CORS_EXPOSE_HEADERS: "Origin, Content-Type, Authorization, X-Requested-With, Content-Length, Accept, Origin, X-Api-Key, X-Total-Count"
+            ALPINE_CORS_ALLOW_CREDENTIALS: "true"
+            ALPINE_CORS_MAX_AGE: "3600"
+            ALPINE_BCRYPT_ROUNDS: "12"
+            TELEMETRY_SUBMISSION_ENABLED_DEFAULT: "false"
+          volumes:
+            - backend-data:/data
+          networks:
+            - app-network
+          restart: unless-stopped
+        frontend:
+          image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/frontend
+          container_name: fortstack-frontend
+          ports:
+            - "8080:8080"
+          environment:
+            API_BASE_URL: "http://{{ ansible_default_ipv4.address }}:8081"
+          depends_on:
+            - backend
+          networks:
+            - app-network
+          restart: unless-stopped
+      volumes:
+        backend-data:
+          driver: local
+    dest: "{{ app_install_dir }}/docker-compose.yml"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0644'
+  tags: [deploy, configuration]
+
+- name: Build backend Docker image
+  shell: |
+    cd {{ app_install_dir }}/backend
+    docker build -t backend:latest .
+  become_user: "{{ app_user }}"
+  tags: [deploy, build]
+
+- name: Build frontend Docker image
+  shell: |
+    cd {{ app_install_dir }}/frontend
+    docker build -t frontend:latest .
+  become_user: "{{ app_user }}"
+  tags: [deploy, build]
+
+- name: Deploy application with docker-compose
+  shell: |
+    cd {{ app_install_dir }}
+    docker compose up -d
+  become_user: "{{ app_user }}"
+  tags: [deploy, docker-compose]
+
+- name: Wait for application to start
+  wait_for:
+    port: 8080
+    host: "{{ ansible_default_ipv4.address }}"
+    delay: 10
+    timeout: 60
+  tags: [deploy, verification]

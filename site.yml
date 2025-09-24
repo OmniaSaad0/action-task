@@ -1,0 +1,126 @@
+---
+- name: Full application deployment
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - group_vars/all.yml
+    - group_vars/vault.yml
+
+  roles:
+    - role: ssh_role
+      tags: [ssh, keypair]
+    - role: ec2_provision
+      tags: [ec2, provision]
+
+- name: Configure and Deploy Application
+  hosts: aws_instances
+  become: true
+  gather_facts: true
+  vars_files:
+    - group_vars/all.yml
+    - group_vars/vault.yml
+
+  roles:
+    - role: docker_install
+      tags: [docker, install]
+    - role: ec2_setup
+      tags: [vm, setup]
+
+  tasks:
+    - name: Configure EC2 as GitHub Actions Runner
+      block:
+        - name: Update package cache
+          apt:
+            update_cache: yes
+            cache_valid_time: 3600
+
+        - name: Install required packages for GitHub Actions runner
+          apt:
+            name:
+              - curl
+              - wget
+              - unzip
+              - jq
+              - git
+              - ca-certificates
+              - gnupg
+              - lsb-release
+            state: present
+
+        - name: Create actions-runner user
+          user:
+            name: actions-runner
+            system: yes
+            shell: /bin/bash
+            home: /home/actions-runner
+            create_home: yes
+
+        - name: Create GitHub Actions runner directory
+          file:
+            path: /home/actions-runner/actions-runner
+            state: directory
+            owner: actions-runner
+            group: actions-runner
+            mode: '0755'
+
+        - name: Download GitHub Actions runner
+          get_url:
+            url: "https://github.com/actions/runner/releases/download/v{{ github_runner_version }}/actions-runner-linux-x64-{{ github_runner_version }}.tar.gz"
+            dest: /tmp/actions-runner.tar.gz
+            mode: '0644'
+            checksum: "{{ github_runner_checksum | default('') }}"
+
+        - name: Extract GitHub Actions runner
+          unarchive:
+            src: /tmp/actions-runner.tar.gz
+            dest: /home/actions-runner/actions-runner
+            owner: actions-runner
+            group: actions-runner
+            remote_src: yes
+
+        - name: Install GitHub Actions runner dependencies
+          shell: |
+            cd /home/actions-runner/actions-runner
+            sudo ./bin/installdependencies.sh
+          become: true
+
+        - name: Configure GitHub Actions runner
+          shell: |
+            cd /home/actions-runner/actions-runner
+            ./config.sh --url {{ github_repo_url }} --token {{ github_runner_token }} --name {{ ansible_hostname }} --work _work --unattended --replace
+          become_user: actions-runner
+          environment:
+            RUNNER_ALLOW_RUNASROOT: "1"
+
+        - name: Install GitHub Actions runner as service
+          shell: |
+            cd /home/actions-runner/actions-runner
+            sudo ./svc.sh install actions-runner
+            sudo ./svc.sh start
+          become: true
+        - name: Clean up downloaded file
+          file:
+            path: /tmp/actions-runner.tar.gz
+            state: absent
+
+      when: configure_github_runner | default(false)
+ 
+
+
+- name: Display deployment information
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          
+          Instance Information:
+          - Instance ID: {{ hostvars[instance_name]['ec2_instance_id'] }}
+          - Public IP: {{ hostvars[instance_name]['ec2_public_ip'] }}
+          - Private IP: {{ hostvars[instance_name]['ec2_private_ip'] }}
+          
+          Application URLs:
+          - Frontend: http://{{ hostvars[instance_name]['ec2_public_ip'] }}:8080
+          - Backend API: http://{{ hostvars[instance_name]['ec2_public_ip'] }}:8081
+          

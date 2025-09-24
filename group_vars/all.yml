@@ -1,0 +1,42 @@
+# AWS Configuration
+aws_region: "us-west-1"
+instance_type: "t3.small"
+ami_id: "ami-0ddac4b9aed8d5d46"
+instance_name: "omnia-app"
+security_group_name: "omnia-sg"
+
+key_name: "omnia-key"
+
+app_user: "omnia"
+app_user_password: "Omnia2024!"
+backend_repo_url: "https://github.com/OmniaSaad0/dependency-track"
+backend_repo_branch: "master"
+frontend_repo_url: "https://github.com/OmniaSaad0/frontend"
+frontend_repo_branch: "master"
+app_install_dir: "/opt/fortstack"
+
+security_group_rules:
+  - proto: tcp
+    port: 22
+    cidr: "0.0.0.0/0"
+    desc: "SSH"
+  - proto: tcp
+    port: 8080
+    cidr: "0.0.0.0/0"
+    desc: "Frontend"
+  - proto: tcp
+    port: 8081
+    cidr: "0.0.0.0/0"
+    desc: "Backend"
+
+resource_tags:
+  Project: "FortStack-project"
+  Environment: "production"
+  ManagedBy: "Ansible"
+
+# GitHub Actions Runner Configuration
+configure_github_runner: true
+github_runner_version: "2.328.0"  # Latest stable version
+github_runner_checksum: "sha256:01066fad3a2893e63e6ca880ae3a1fad5bf9329d60e77ee15f2b97c148c3cd4e"
+github_repo_url: "https://github.com/OmniaSaad0/action-task"  # Your actual repo URL
+github_runner_token: "{{ vault_github_runner_token }}"  # Store in ansible-vault
