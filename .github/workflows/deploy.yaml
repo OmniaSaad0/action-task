@@ -31,6 +31,13 @@ jobs:
           echo "tag=${{ github.event.inputs.tag || 'latest' }}" >> $GITHUB_OUTPUT
           echo "Deploying with tag: ${{ github.event.inputs.tag || 'latest' }}"
 
+      - name: Configure AWS credentials
+        run: |
+          
+          aws configure set region us-west-1
+          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 645537741587.dkr.ecr.us-west-1.amazonaws.com
+          
+
       - name: Update Docker Compose for deployment
         run: |
           cd ${{ env.DEPLOY_DIR }}
