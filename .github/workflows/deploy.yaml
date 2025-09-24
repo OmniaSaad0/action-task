@@ -1,8 +1,9 @@
 name: Deploy Application
+
 on:
   push:
     branches:
-      - 'feat_*' 
+      - 'feat_*'
   workflow_dispatch:
     inputs:
       tag:
@@ -11,20 +12,24 @@ on:
         default: 'latest'
         type: string
 
-
 env:
   DOCKER_COMPOSE_FILE: docker-compose.yaml
   DEPLOY_DIR: /opt/fortstack
 
 jobs:
   deploy:
-    runs-on: self-hosted    
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
 
+      - name: Set deployment variables
+        id: vars
+        run: |
+          echo "tag=${{ github.event.inputs.tag || 'latest' }}" >> $GITHUB_OUTPUT
+          echo "Deploying with tag: ${{ github.event.inputs.tag || 'latest' }}"
 
       - name: Update Docker Compose for deployment
         run: |
@@ -42,11 +47,8 @@ jobs:
         run: |
           cd ${{ env.DEPLOY_DIR }}
           docker compose down || true
-          
 
       - name: Deploy services
         run: |
-          cd ${{ env.DEPLOY_DIR }}  
+          cd ${{ env.DEPLOY_DIR }}
           docker compose up -d
-
-    

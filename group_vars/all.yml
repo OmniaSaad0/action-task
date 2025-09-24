@@ -7,7 +7,7 @@ security_group_name: "omnia-sg"
 
 key_name: "omnia-key"
 
-app_user: "omnia"
+app_user: "actions-runner"
 app_user_password: "Omnia2024!"
 backend_repo_url: "https://github.com/OmniaSaad0/dependency-track"
 backend_repo_branch: "master"
@@ -36,7 +36,9 @@ resource_tags:
 
 # GitHub Actions Runner Configuration
 configure_github_runner: true
-github_runner_version: "2.328.0"  # Latest stable version
+github_runner_version: "2.328.0" 
 github_runner_checksum: "sha256:01066fad3a2893e63e6ca880ae3a1fad5bf9329d60e77ee15f2b97c148c3cd4e"
-github_repo_url: "https://github.com/OmniaSaad0/action-task"  # Your actual repo URL
-github_runner_token: "{{ vault_github_runner_token }}"  # Store in ansible-vault
+github_repo_url: "https://github.com/OmniaSaad0/action-task"  
+add_github_runner_token: "{{ vault_add_github_runner_token }}"  
+remove_github_runner_token: "{{ vault_remove_github_runner_token }}"    
+

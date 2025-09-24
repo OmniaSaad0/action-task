@@ -25,6 +25,8 @@
       tags: [docker, install]
     - role: ec2_setup
       tags: [vm, setup]
+    - role: deploy_app
+      tags: [deploy, app]
 
   tasks:
     - name: Configure EC2 as GitHub Actions Runner
@@ -84,10 +86,21 @@
             sudo ./bin/installdependencies.sh
           become: true
 
+        # - name: Remove existing GitHub Actions runner configuration
+        #   shell: |
+        #     cd /home/actions-runner/actions-runner
+        #     sudo ./svc.sh stop
+        #     sudo ./svc.sh uninstall
+        #     ./config.sh remove --token {{ remove_github_runner_token }} || true
+        #   become_user: actions-runner
+        #   environment:
+        #     RUNNER_ALLOW_RUNASROOT: "1"
+        #   ignore_errors: true
+
         - name: Configure GitHub Actions runner
           shell: |
             cd /home/actions-runner/actions-runner
-            ./config.sh --url {{ github_repo_url }} --token {{ github_runner_token }} --name {{ ansible_hostname }} --work _work --unattended --replace
+            ./config.sh --url {{ github_repo_url }} --token {{ add_github_runner_token }} --name {{ ansible_hostname }} --work _work --unattended --replace
           become_user: actions-runner
           environment:
             RUNNER_ALLOW_RUNASROOT: "1"
@@ -98,12 +111,15 @@
             sudo ./svc.sh install actions-runner
             sudo ./svc.sh start
           become: true
+
         - name: Clean up downloaded file
           file:
             path: /tmp/actions-runner.tar.gz
             state: absent
 
       when: configure_github_runner | default(false)
+
+
  
 
 

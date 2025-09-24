@@ -8,6 +8,28 @@
     mode: '0755'
   tags: [deploy, directories]
 
+- name: Set directory permissions for app_user
+  file:
+    path: "{{ app_install_dir }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: '0775'
+  tags: [deploy, permissions]
+
+- name: Add app_user to docker group
+  user:
+    name: "{{ app_user }}"
+    groups: docker
+    append: yes
+  tags: [deploy, permissions]
+
+- name: Ensure app_user can access Docker socket
+  file:
+    path: /var/run/docker.sock
+    group: docker
+    mode: '0664'
+  tags: [deploy, permissions]
+
 # - name: Clone backend repository
 #   git:
 #     repo: "{{ backend_repo_url }}"
@@ -75,31 +97,31 @@
     mode: '0644'
   tags: [deploy, configuration]
 
-- name: Build backend Docker image
-  shell: |
-    cd {{ app_install_dir }}/backend
-    docker build -t backend:latest .
-  become_user: "{{ app_user }}"
-  tags: [deploy, build]
+# - name: Build backend Docker image
+#   shell: |
+#     cd {{ app_install_dir }}/backend
+#     docker build -t backend:latest .
+#   become_user: "{{ app_user }}"
+#   tags: [deploy, build]
 
-- name: Build frontend Docker image
-  shell: |
-    cd {{ app_install_dir }}/frontend
-    docker build -t frontend:latest .
-  become_user: "{{ app_user }}"
-  tags: [deploy, build]
+# - name: Build frontend Docker image
+#   shell: |
+#     cd {{ app_install_dir }}/frontend
+#     docker build -t frontend:latest .
+#   become_user: "{{ app_user }}"
+#   tags: [deploy, build]
 
-- name: Deploy application with docker-compose
-  shell: |
-    cd {{ app_install_dir }}
-    docker compose up -d
-  become_user: "{{ app_user }}"
-  tags: [deploy, docker-compose]
+# - name: Deploy application with docker-compose
+#   shell: |
+#     cd {{ app_install_dir }}
+#     docker compose up -d
+#   become_user: "{{ app_user }}"
+#   tags: [deploy, docker-compose]
 
-- name: Wait for application to start
-  wait_for:
-    port: 8080
-    host: "{{ ansible_default_ipv4.address }}"
-    delay: 10
-    timeout: 60
-  tags: [deploy, verification]
+# - name: Wait for application to start
+#   wait_for:
+#     port: 8080
+#     host: "{{ ansible_default_ipv4.address }}"
+#     delay: 10
+#     timeout: 60
+#   tags: [deploy, verification]
