@@ -39,14 +39,20 @@ jobs:
           
           sed -i "s|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend:${{ steps.vars.outputs.tag }}|g" docker-compose.yml
           sed -i "s|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/frontend|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/frontend:${{ steps.vars.outputs.tag }}|g" docker-compose.yml
-                    
+          
           echo "Updated docker-compose.yml with tag: ${{ steps.vars.outputs.tag }}"
 
-     
       - name: Stop existing services
         run: |
           cd ${{ env.DEPLOY_DIR }}
           docker compose down || true
+
+      - name: Validate docker-compose.yml
+        run: |
+          cd ${{ env.DEPLOY_DIR }}
+          echo "Validating docker-compose.yml syntax..."
+          docker compose config --quiet
+          echo "docker-compose.yml is valid"
 
       - name: Deploy services
         run: |
