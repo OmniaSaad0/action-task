@@ -38,7 +38,7 @@ jobs:
         run: |
           USER_ID=$(curl -s -X GET \
             -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
-            "https://slack.com/api/users.lookupByEmail?email=saadomnia509@gmail.com" \
+            "https://slack.com/api/users.lookupByEmail?email=o.saadkhalifa@outlook.com" \
             | jq -r '.user.id')
 
           if [ "$USER_ID" == "null" ] || [ -z "$USER_ID" ]; then
