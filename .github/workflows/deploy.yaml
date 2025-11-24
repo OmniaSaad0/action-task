@@ -18,7 +18,7 @@ env:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,40 +30,45 @@ jobs:
         run: |
           echo "tag=${{ github.event.inputs.tag || 'latest' }}" >> $GITHUB_OUTPUT
           echo "Deploying with tag: ${{ github.event.inputs.tag || 'latest' }}"
-
-      - name: Configure AWS credentials
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Slack User ID from Email
+        id: get_user
         run: |
-          
-          aws configure set region us-west-1
-          aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin 645537741587.dkr.ecr.us-west-1.amazonaws.com
-          
+          USER_ID=$(curl -s -X GET \
+            -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+            "https://slack.com/api/users.lookupByEmail?email=saadomnia509@gmail.com" \
+            | jq -r '.user.id')
 
-      - name: Update Docker Compose for deployment
+          if [ "$USER_ID" == "null" ] || [ -z "$USER_ID" ]; then
+            echo "Could not find Slack user"
+            exit 1
+          fi
+
+          echo "user_id=$USER_ID" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack Success
+        if: success()
         run: |
-          cd ${{ env.DEPLOY_DIR }}
+          curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+          -H "Content-type: application/json" \
+          --data "{
+            \"channel\": \"${{ steps.get_user.outputs.user_id }}\",
+            \"text\": \":white_check_mark: *Workflow succeeded!* Repository: $GITHUB_REPOSITORY Branch: $GITHUB_REF_NAME\"
+          }" \
+          https://slack.com/api/chat.postMessage
 
-          
-          
-          cp docker-compose.yml docker-compose.yml.backup
-          
-          sed -i "s|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend:latest|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/backend:${{ steps.vars.outputs.tag }}|g" docker-compose.yml
-          sed -i "s|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/frontend:latest|image: 645537741587.dkr.ecr.us-west-1.amazonaws.com/omnia/frontend:${{ steps.vars.outputs.tag }}|g" docker-compose.yml
-          
-          echo "Updated docker-compose.yml with tag: ${{ steps.vars.outputs.tag }}"
-
-      - name: Stop existing services
+      - name: Notify Slack Failure
+        if: failure()
         run: |
-          cd ${{ env.DEPLOY_DIR }}
-          docker compose down || true
-
-      - name: Validate docker-compose.yml
-        run: |
-          cd ${{ env.DEPLOY_DIR }}
-          echo "Validating docker-compose.yml syntax..."
-          docker compose config --quiet
-          echo "docker-compose.yml is valid"
-
-      - name: Deploy services
-        run: |
-          cd ${{ env.DEPLOY_DIR }}
-          docker compose up -d
+          curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.SLACK_BOT_TOKEN }}" \
+          -H "Content-type: application/json" \
+          --data "{
+            \"channel\": \"${{ steps.get_user.outputs.user_id }}\",
+            \"text\": \":x: *Workflow failed!* Repository: $GITHUB_REPOSITORY Branch: $GITHUB_REF_NAME\"
+          }" \
+          https://slack.com/api/chat.postMessage
+  
